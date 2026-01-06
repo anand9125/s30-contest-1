@@ -5,7 +5,7 @@ const router = Router()
 
 router.post("/signup",userSignUp)
 
-router.post("signin",userSignin)
+router.post("/signin",userSignin)
 
 
 export const userRouter = router;

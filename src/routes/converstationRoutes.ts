@@ -7,11 +7,11 @@ const router = Router()
 
 router.post("/",userAuthMiddleware,createConversation)
 
-router.post("/conversations/:id/assign", userAuthMiddleware, assignConversation);
+router.post("/:id/assign", userAuthMiddleware, assignConversation);
 
-router.get("/conversations/:id", userAuthMiddleware, getConversation);
+router.get("/:id", userAuthMiddleware, getConversation);
 
-router.post("/conversations/:id/close",userAuthMiddleware,closeConversation);
+router.post("/:id/close",userAuthMiddleware,closeConversation);
 
 router.get("/admin/analytics", userAuthMiddleware, getAdminAnalytics);
 

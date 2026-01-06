@@ -1,17 +1,18 @@
 import express from "express"
 import cors from "cors"
-import type { Request,Response } from "express";
+import http from "http";
 import { userRouter } from "./routes/userRoutes.js";
 import { conversationRouter } from "./routes/converstationRoutes.js";
+
 
 const app = express();
 app.use(express.json());
 app.use(cors());
+const server = http.createServer(app);
 
-app.use("/api/v1/user",userRouter);
+app.use("/auth",userRouter);
 
-app.use("/api/v1/conversation",conversationRouter);
-
+app.use("/conversations",conversationRouter);
 
 
 
