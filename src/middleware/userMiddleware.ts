@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
-import { JWT_PASSWORD } from "../types/types.js";
 import jwt from "jsonwebtoken";
+import { JWT_PASSWORD } from "../types/types.js";
 
 export interface AuthenticatedRequest extends Request {
   user?: {
@@ -14,12 +14,17 @@ export function userAuthMiddleware(
   res: Response,
   next: NextFunction
 ): void {
-  const token = req.headers.authorization;
+  const authHeader = req.headers.authorization;
 
-  if (!token) {
-    res.status(401).json({ message: "Token required" });
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    res.status(401).json({
+      success: false,
+      error: "Unauthorized, token missing or invalid",
+    });
     return;
   }
+
+  const token = authHeader.split(" ")[1];
 
   try {
     const payload = jwt.verify(token, JWT_PASSWORD) as {
@@ -34,6 +39,9 @@ export function userAuthMiddleware(
 
     next();
   } catch {
-    res.status(401).json({ message: "Invalid token" });
+    res.status(401).json({
+      success: false,
+      error: "Unauthorized, token missing or invalid",
+    });
   }
 }

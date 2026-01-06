@@ -1,12 +1,14 @@
 import { z } from "zod";
 
+export const objectIdSchema = z.string().uuid();
+
 export const SignupSchema = z
   .object({
     name: z.string().min(1),
     email: z.string().email(),
     password: z.string().min(6),
     role: z.enum(["admin", "supervisor", "agent", "candidate"]),
-    supervisorId: z.string().optional(),
+    supervisorId: objectIdSchema.optional(),
   })
 
 
@@ -16,21 +18,21 @@ export const SigninSchema = z.object({
   password: z.string().min(1),
 });
 
-//The candidate provides supervisorId so the system knows which support team should own the conversation from the start.
+
 export const createConversationSchema = z.object({
-  supervisorId: z.string().min(1, "supervisorId is required"),
+  supervisorId: objectIdSchema,
 });
 
 export const assignConversationSchema = z.object({
-  agentId: z.string().min(1, "agentId is required"),
+  agentId: objectIdSchema,
 });
 
 export const getConversationParamsSchema = z.object({
-  id: z.string().min(1, "conversationId is required"),
+  id: objectIdSchema,
 });
 
 export const closeConversationParamsSchema = z.object({
-  id: z.string().min(1, "conversationId is required"),
+  id: objectIdSchema,
 });
 
 export const adminAnalyticsSchema = z.object({});

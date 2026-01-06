@@ -5,78 +5,175 @@ import jwt from "jsonwebtoken"
 import { JWT_PASSWORD } from "../types/types.js";
 import { email } from "zod";
 import prisma from "../lib/index.js";
+import { AuthenticatedRequest } from "../middleware/userMiddleware.js";
 
-export const userSignUp = async (req:Request,res:Response)=>{
-    const parseData = SignupSchema.safeParse(req.body);
-    if (!parseData.success){
-        res.json({
-            message : "parseData is wrong"
-        })
-        return;
-    }
-    try{
-        const existingUser = await prisma.user.findUnique({
-            where :{
-                email : parseData.data.email
-            }
-        })
-        if (existingUser){
-            res.json({
-                message : "user already exist"
-            })
-            return;
-        }
-        const hashPassword = await bcrypt.hash(parseData.data.password,10)
-        const user = await prisma.user.create({
-            data:{
-                name : parseData.data.name,
-                email : parseData.data.email,
-                password : hashPassword,
-                role : parseData.data.role 
-            }
-        })
-        res.json({
-            message : "user is signup"
-        })
-    }catch{
-        res.json({
-            message : "Internal server error"
-        })
+export const userSignUp = async (req: Request, res: Response) => {
+  const parsed = SignupSchema.safeParse(req.body);
 
+  if (!parsed.success) {
+    return res.status(400).json({
+      success: false,
+      error: "Invalid request schema",
+    });
+  }
+
+  const { name, email, password, role, supervisorId } = parsed.data;
+
+  try {
+    const existingUser = await prisma.user.findUnique({ where: { email } });
+    if (existingUser) {
+      return res.status(409).json({
+        success: false,
+        error: "Email already exists",
+      });
     }
 
-}
+    if (role === "agent") {
+      if (!supervisorId) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid request schema",
+        });
+      }
 
-export const userSignin = async(req:Request,res:Response)=>{
-    const parseData = SigninSchema.safeParse(req.body);
-    if (!parseData.success){
-        res.json({
-            message : "parseData is wrong"
-        })
-        return
+      const supervisor = await prisma.user.findUnique({
+        where: { id: supervisorId },
+      });
+
+      if (!supervisor) {
+        return res.status(404).json({
+          success: false,
+          error: "Supervisor not found",
+        });
+      }
+
+      if (supervisor.role !== "supervisor") {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid supervisor role",
+        });
+      }
     }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const user = await prisma.user.create({
+      data: {
+        name,
+        email,
+        password: hashedPassword,
+        role,
+        supervisorId: role === "agent" ? supervisorId : null,
+      },
+    });
+
+    return res.status(201).json({
+      success: true,
+      data: {
+        _id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    });
+  } catch {
+    return res.status(500).json({
+      success: false,
+      error: "Internal server error",
+    });
+  }
+};
+
+export const userSignin = async (req: Request, res: Response) => {
+  const parsed = SigninSchema.safeParse(req.body);
+
+  if (!parsed.success) {
+    return res.status(400).json({
+      success: false,
+      error: "Invalid request schema",
+    });
+  }
+
+  const { email, password } = parsed.data;
+
+  try {
+    const user = await prisma.user.findUnique({ where: { email } });
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        error: "Unauthorized, token missing or invalid",
+      });
+    }
+
+    const validPassword = await bcrypt.compare(password, user.password);
+
+    if (!validPassword) {
+      return res.status(401).json({
+        success: false,
+        error: "Unauthorized, token missing or invalid",
+      });
+    }
+
+    const token = jwt.sign(
+      { userId: user.id, role: user.role },
+      JWT_PASSWORD
+    );
+
+    return res.status(200).json({
+      success: true,
+      data: { token },
+    });
+  } catch {
+    return res.status(500).json({
+      success: false,
+      error: "Internal server error",
+    });
+  }
+};
+
+
+export const getMe = async (req: Request, res: Response) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+
+    if (!authReq.user) {
+      return res.status(401).json({
+        success: false,
+        error: "Unauthorized, token missing or invalid",
+      });
+    }
+
     const user = await prisma.user.findUnique({
-        where:{
-            email : parseData.data.email
-        }
-    })
-    if (!user){
-        res.json({
-            message : "user is not exist please signup"
-        })
-        return
+      where: { id: authReq.user.userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        error: "Unauthorized, token missing or invalid",
+      });
     }
-    const token = jwt.sign({
-        userId :user.id,
-        role : user.role
-    },JWT_PASSWORD);
-    
-    res.json({
-        user:{
-            id : user.id,
-            email : user.email,
-            token
-        }
-    })
-  
-}
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        _id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    });
+  } catch {
+    return res.status(500).json({
+      success: false,
+      error: "Internal server error",
+    });
+  }
+};
