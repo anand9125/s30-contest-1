@@ -1,0 +1,76 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  password     String
+  role         Role
+  supervisorId String?   //Only populated when role = agent
+  //self relation for supervisor and agents
+
+  supervisor   User?    @relation("SupervisorAgents", fields: [supervisorId], references: [id])  
+  agents       User[]   @relation("SupervisorAgents")
+
+  conversationsAsCandidate  Conversation[] @relation("CandidateConversations")
+  conversationsAsAgent      Conversation[] @relation("AgentConversations")
+  conversationsAsSupervisor Conversation[] @relation("SupervisorConversations")
+
+  createdAt DateTime @default(now())
+}
+
+model Conversation {
+  id           String             @id @default(uuid())
+  candidateId  String
+  agentId      String?
+  supervisorId String
+  status       ConversationStatus
+  createdAt    DateTime           @default(now())
+
+  candidate  User @relation("CandidateConversations", fields: [candidateId], references: [id])
+  agent      User? @relation("AgentConversations", fields: [agentId], references: [id])
+  supervisor User @relation("SupervisorConversations", fields: [supervisorId], references: [id])
+
+  messages Message[]
+}
+
+
+model Message {
+  id             String   @id @default(uuid())
+  conversationId String
+  senderId       String
+  senderRole     Role
+  content        String
+  createdAt      DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+
+  @@index([conversationId])
+}
+
+
+enum Role {
+  admin
+  supervisor
+  agent
+  candidate
+}
+
+enum ConversationStatus {
+  open
+  assigned
+  closed
+}
